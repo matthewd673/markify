@@ -10,12 +10,10 @@ namespace markify
             Console.WriteLine("Hello World!");
 
             //temporary
-            string fileText = File.ReadAllText(@"C:\Users\Matthew\Source\Repos\IsoEngine\IsoEngine\Animation.cs");
+            string fileText = File.ReadAllText(@"C:\Users\Matthew\Source\Repos\IsoEngine\IsoEngine\EntityManager.cs");
             string output = Generator.ParseFile(fileText);
 
             Console.WriteLine(output);
-
-            Console.ReadKey();
         }
     }
 }

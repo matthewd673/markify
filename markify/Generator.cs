@@ -20,18 +20,18 @@ namespace markify
 
             foreach (MethodDeclarationSyntax n in nodes)
             {
-                SyntaxTriviaList triviaList = n.GetLeadingTrivia();
                 output += n.Identifier + "\n";
-                foreach (SyntaxTrivia t in triviaList)
+
+                string[] modifiers = new string[n.Modifiers.Count];
+                for (int i = 0; i < modifiers.Length; i++)
                 {
-                    if (t.Kind() != SyntaxKind.SingleLineDocumentationCommentTrivia)
-                        continue;
-                    else
-                        output += t.GetStructure() + "\n";
+                    modifiers[i] = n.Modifiers[0].ToString();
                 }
-                output += "---------------------\n";
-                //output += n.Identifier + " " + n.GetLeadingTrivia() + "\n";
-                //output += n.Identifier + " (" + n.ReturnType + ") " + n.Modifiers + ", " + n.ParameterList + "\n";
+
+                SyntaxTriviaList triviaList = n.GetLeadingTrivia();
+                string commentXml = triviaList[0].ToString();
+
+                MethodInfo methodInfo = new MethodInfo(n.Identifier.Text, n.ReturnType.ToString(), modifiers, n.ParameterList, n.TypeParameterList, commentXml);
             }
 
             return output;
@@ -42,9 +42,21 @@ namespace markify
         {
             public string name;
             public string returnType;
-            public string modifiers;
-            public List<ParamInfo> paramInfoList;
-            public string comment;
+            public string[] modifiers;
+            public ParameterListSyntax parameters;
+            public TypeParameterListSyntax typeParameters;
+            public string commentXml;
+
+            public MethodInfo(string name, string returnType, string[] modifiers, ParameterListSyntax parameters, TypeParameterListSyntax typeParameters, string commentXml)
+            {
+                this.name = name;
+                this.returnType = returnType;
+                this.modifiers = modifiers;
+                this.parameters = parameters;
+                this.typeParameters = typeParameters;
+                this.commentXml = commentXml;
+            }
+
         }
 
         struct ParamInfo
@@ -52,6 +64,13 @@ namespace markify
             public string name;
             public string type;
             public string comment;
+
+            public ParamInfo(string name, string type, string comment)
+            {
+                this.name = name;
+                this.type = type;
+                this.comment = comment;
+            }
         }
 
     }
