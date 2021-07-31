@@ -20,7 +20,7 @@ namespace markify
 
             foreach (MethodDeclarationSyntax n in nodes)
             {
-                output += n.Identifier + "\n";
+                //output += n.Identifier + "\n";
 
                 string[] modifiers = new string[n.Modifiers.Count];
                 for (int i = 0; i < modifiers.Length; i++)
@@ -31,11 +31,62 @@ namespace markify
                 SyntaxTriviaList triviaList = n.GetLeadingTrivia();
                 string commentXml = triviaList[0].ToString();
 
-                MethodInfo methodInfo = new MethodInfo(n.Identifier.Text, n.ReturnType.ToString(), modifiers, n.ParameterList, n.TypeParameterList, commentXml);
+                string methodSnippet = BuildSnippetFromNode(n);
+
+                MethodInfo methodInfo = new MethodInfo(n.Identifier.Text, n.ReturnType.ToFullString(), modifiers, n.ParameterList, n.TypeParameterList, commentXml);
+                Console.WriteLine(GenerateMethodMarkdown(methodInfo, methodSnippet));
             }
 
             return output;
 
+        }
+
+        static string GenerateMethodMarkdown(MethodInfo info, string snippet)
+        {
+            string output = "## " + info.returnType + " `" + info.name + "`\n";
+
+            output += "`" + snippet + "`\n";
+
+            if (info.parameters.Parameters.Count > 0)
+            {
+                output += "### Parameters\n";
+                foreach (ParameterSyntax p in info.parameters.Parameters)
+                {
+                    output += "- " + p.Type.ToString() + " **`" + p.Identifier + "`**";
+                    if (p.Default != null)
+                        output += ": " + p.Default.Value + "\n";
+                    else
+                        output += "\n";
+                }
+            }
+            else
+            {
+                output += "*(No parameters)*\n";
+            }
+
+            return output;
+        }
+
+        static string BuildSnippetFromNode(MethodDeclarationSyntax n)
+        {
+            List<SyntaxNode> children = n.ChildNodes().ToList();
+
+            string output = n.Modifiers + " ";
+            for (int i = 0; i < children.Count; i++)
+            {
+                if (children[i].IsKind(SyntaxKind.Block)) //stop at code block
+                    break;
+
+                if (i == 1) //add identifier if appropriate
+                    output += n.Identifier;
+
+                if (children[i].IsKind(SyntaxKind.ParameterList)) //avoid whitespace before parameter list (cosmetic)
+                    output = output.Trim();
+
+                output += children[i] + " ";
+            }
+
+            return output.Trim();
         }
 
         struct MethodInfo
