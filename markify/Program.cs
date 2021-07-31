@@ -7,10 +7,8 @@ namespace markify
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
-
             //temporary
-            string fileText = File.ReadAllText(@"C:\Users\Matthew\Source\Repos\IsoEngine\IsoEngine\EntityManager.cs");
+            string fileText = File.ReadAllText(@"C:\Users\Matthew\Source\Repos\IsoEngine\IsoEngine\EntityManagerb.cs");
             string output = Generator.ParseFile(fileText);
 
             Console.WriteLine(output);
