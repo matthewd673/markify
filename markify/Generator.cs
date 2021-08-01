@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Xml;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -17,13 +18,21 @@ namespace markify
 
             SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(sourceText, CSharpParseOptions.Default.WithDocumentationMode(DocumentationMode.Parse));
 
+            //get namespace
+            IEnumerable<NamespaceDeclarationSyntax> namespaceDecsEnum = syntaxTree.GetRoot().DescendantNodes().OfType<NamespaceDeclarationSyntax>();
+            NamespaceDeclarationSyntax namespaceDec = namespaceDecsEnum.First();
+            string namespaceName = namespaceDec.Name.ToString();
+
             //get list of all class declarations
             IEnumerable<ClassDeclarationSyntax> classes = syntaxTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>();
             foreach (ClassDeclarationSyntax c in classes)
             {
+                SyntaxTriviaList triviaList = c.GetLeadingTrivia();
+                string commentXml = triviaList[0].ToString();
+
                 string classSnippet = BuildClassSnippet(c);
 
-                ClassInfo classInfo = new ClassInfo(c.Identifier.Text, classSnippet);
+                ClassInfo classInfo = new ClassInfo(c.Identifier.Text, namespaceName, commentXml, classSnippet);
                 Console.WriteLine(GenerateClassMarkdown(classInfo));
             }
 
@@ -32,12 +41,22 @@ namespace markify
             foreach (MethodDeclarationSyntax m in methods)
             {
                 SyntaxTriviaList triviaList = m.GetLeadingTrivia();
-                string commentXml = triviaList[0].ToString();
+
+                string rawComment = "";
+                foreach (SyntaxTrivia t in triviaList)
+                {
+                    if (t.Kind() != SyntaxKind.SingleLineDocumentationCommentTrivia)
+                        continue;
+                    rawComment += t.ToString();
+                }
+
+                XmlDocument comment = CommentToXml(rawComment);
+                Dictionary<string, string> paramDict = ParseParamComments(comment);
 
                 string methodSnippet = BuildMethodSnippet(m);
 
-                MethodInfo methodInfo = new MethodInfo(m.Identifier.Text, m.ReturnType.ToString(), m.ParameterList, m.TypeParameterList, commentXml, methodSnippet);
-                Console.WriteLine(GenerateMethodMarkdown(methodInfo));
+                MethodInfo methodInfo = new MethodInfo(m.Identifier.Text, m.ReturnType.ToString(), m.ParameterList, m.TypeParameterList, comment, methodSnippet);
+                Console.WriteLine(GenerateMethodMarkdown(methodInfo, paramDict));
             }
 
             return output;
@@ -47,26 +66,34 @@ namespace markify
         static string GenerateClassMarkdown(ClassInfo info)
         {
             string output = "# `" + info.name + "`\n";
-            output += "`" + info.snippet + "`\n";
+            output += "*" + info.namespaceName + "*\n\n";
+            output += "```csharp\n" + info.snippet + "\n```\n";
 
             return output;
         }
 
-        static string GenerateMethodMarkdown(MethodInfo info)
+        static string GenerateMethodMarkdown(MethodInfo info, Dictionary<string, string> paramDict)
         {
             string output = "## " + info.returnType + " `" + info.name + "`\n";
-            output += "`" + info.snippet + "`\n";
+            output += "```csharp\n" + info.snippet + "\n```\n\n";
+
+            //output += ParseCommentXml(info.commentXml) + "\n\n";
 
             if (info.parameters.Parameters.Count > 0)
             {
                 output += "### Parameters\n";
                 foreach (ParameterSyntax p in info.parameters.Parameters)
                 {
-                    output += "- " + p.Type.ToString() + " **`" + p.Identifier + "`**";
+                    output += "- **" + p.Type.ToString() + " `" + p.Identifier + "`";
+                    //display default value, if it has one
                     if (p.Default != null)
-                        output += ": " + p.Default.Value + "\n";
+                        output += " = `" + p.Default.Value + "`**";
                     else
-                        output += "\n";
+                        output += "**";
+
+                    //display comment, if it has one
+                    if (paramDict.ContainsKey(p.Identifier.ToString()))
+                        output += ": " + paramDict[p.Identifier.ToString()] + "\n";
                 }
             }
             else
@@ -117,14 +144,52 @@ namespace markify
             return output.Trim();
         }
 
+        static XmlDocument CommentToXml(string rawComment)
+        {
+            string commentXml = "";
+            string[] commentLines = rawComment.Split('\n');
+            for (int i = 0; i < commentLines.Length; i++)
+            {
+                string line = commentLines[i].Trim();
+                if (line.StartsWith("///"))
+                    line = line.Remove(0, 3);
+                line = line.Trim();
+                commentXml += line + "\n";
+            }
+
+            commentXml = "<xml>\n" + commentXml + "\n</xml>"; //one root element
+
+            XmlDocument document = new XmlDocument();
+            document.LoadXml(commentXml);
+
+            return document;
+        }
+
+        static Dictionary<string, string> ParseParamComments(XmlDocument document)
+        {
+            Dictionary<string, string> paramDict = new Dictionary<string, string>();
+            foreach (XmlNode node in document.GetElementsByTagName("param"))
+            {
+                string paramName = node.Attributes.GetNamedItem("name").Value;
+                string paramComment = node.InnerText;
+                paramDict.Add(paramName, paramComment);
+            }
+
+            return paramDict;
+        }
+
         struct ClassInfo
         {
             public string name;
+            public string namespaceName;
+            public string commentXml;
             public string snippet;
 
-            public ClassInfo(string name, string snippet)
+            public ClassInfo(string name, string namespaceName, string commentXml, string snippet)
             {
                 this.name = name;
+                this.namespaceName = namespaceName;
+                this.commentXml = commentXml;
                 this.snippet = snippet;
             }            
         }
@@ -135,31 +200,17 @@ namespace markify
             public string returnType;
             public ParameterListSyntax parameters;
             public TypeParameterListSyntax typeParameters;
-            public string commentXml;
+            public XmlDocument comment;
             public string snippet;
 
-            public MethodInfo(string name, string returnType, ParameterListSyntax parameters, TypeParameterListSyntax typeParameters, string commentXml, string snippet)
+            public MethodInfo(string name, string returnType, ParameterListSyntax parameters, TypeParameterListSyntax typeParameters, XmlDocument comment, string snippet)
             {
                 this.name = name;
                 this.returnType = returnType;
                 this.parameters = parameters;
                 this.typeParameters = typeParameters;
-                this.commentXml = commentXml;
-                this.snippet = snippet;
-            }
-        }
-
-        struct ParamInfo
-        {
-            public string name;
-            public string type;
-            public string comment;
-
-            public ParamInfo(string name, string type, string comment)
-            {
-                this.name = name;
-                this.type = type;
                 this.comment = comment;
+                this.snippet = snippet;
             }
         }
 
