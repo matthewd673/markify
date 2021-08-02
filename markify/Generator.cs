@@ -27,13 +27,33 @@ namespace markify
             IEnumerable<ClassDeclarationSyntax> classes = syntaxTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>();
             foreach (ClassDeclarationSyntax c in classes)
             {
+                //generate markdown for each class
                 SyntaxTriviaList triviaList = c.GetLeadingTrivia();
-                string commentXml = triviaList[0].ToString();
+
+                string rawComment = "";
+                foreach (SyntaxTrivia t in triviaList)
+                {
+                    if (t.Kind() != SyntaxKind.SingleLineDocumentationCommentTrivia)
+                        continue;
+                    rawComment += t.ToString();
+                }
+
+                XmlDocument comment = CommentToXml(rawComment);
+                string summary = ParseCommentTag(comment, "summary");
 
                 string classSnippet = BuildClassSnippet(c);
 
-                ClassInfo classInfo = new ClassInfo(c.Identifier.Text, namespaceName, commentXml, classSnippet);
-                Console.WriteLine(GenerateClassMarkdown(classInfo));
+                Console.WriteLine(GenerateClassMarkdown(c.Identifier.Text, namespaceName, classSnippet, summary));
+
+                //generate markdown for everything within the class
+                //TODO: move other markdown builders to here
+            }
+
+            //get list of all constructors
+            IEnumerable<ConstructorDeclarationSyntax> constructors = syntaxTree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>();
+            foreach (ConstructorDeclarationSyntax c in constructors)
+            {
+                //TODO
             }
 
             //get list of all method declarations
@@ -51,49 +71,65 @@ namespace markify
                 }
 
                 XmlDocument comment = CommentToXml(rawComment);
+                string summary = ParseCommentTag(comment, "summary");
+                string returns = ParseCommentTag(comment, "returns");
                 Dictionary<string, string> paramDict = ParseParamComments(comment);
 
                 string methodSnippet = BuildMethodSnippet(m);
 
-                MethodInfo methodInfo = new MethodInfo(m.Identifier.Text, m.ReturnType.ToString(), m.ParameterList, m.TypeParameterList, comment, methodSnippet);
-                Console.WriteLine(GenerateMethodMarkdown(methodInfo, paramDict));
+                Console.WriteLine(GenerateMethodMarkdown(m.Identifier.Text, m.ReturnType.ToString(), methodSnippet, summary, returns, m.ParameterList, paramDict));
             }
 
             return output;
 
         }
 
-        static string GenerateClassMarkdown(ClassInfo info)
+        static string GenerateClassMarkdown(string name, string namespaceName, string snippet, string summary)
         {
-            string output = "# `" + info.name + "`\n";
-            output += "*" + info.namespaceName + "*\n\n";
-            output += "```csharp\n" + info.snippet + "\n```\n";
+            //build header, namespace info, and snippet
+            string output = "# `" + name + "`\n";
+            output += "Namespace: *" + namespaceName + "*\n\n";
+            output += "```csharp\n" + snippet + "\n```\n\n";
+
+            //build summary
+            if (!summary.Equals(""))
+                output += summary + "\n\n";
 
             return output;
         }
 
-        static string GenerateMethodMarkdown(MethodInfo info, Dictionary<string, string> paramDict)
+        static string GenerateMethodMarkdown(string name, string returnType, string snippet, string summary, string returns, ParameterListSyntax parameters, Dictionary<string, string> paramDict)
         {
-            string output = "## " + info.returnType + " `" + info.name + "`\n";
-            output += "```csharp\n" + info.snippet + "\n```\n\n";
+            //build header and code snippet
+            string output = "## " + returnType + " `" + name + "`\n";
+            output += "```csharp\n" + snippet + "\n```\n\n";
 
-            //output += ParseCommentXml(info.commentXml) + "\n\n";
+            //build summary
+            if (!summary.Equals(""))
+                output += summary + "\n\n";
 
-            if (info.parameters.Parameters.Count > 0)
+            //build returns info
+            if (!returns.Equals(""))
             {
-                output += "### Parameters\n";
-                foreach (ParameterSyntax p in info.parameters.Parameters)
+                output += "**Returns:** " + returns + "\n\n";
+            }
+
+            //build parameters table
+            if (parameters.Parameters.Count > 0)
+            {
+                output += "Parameter|Description\n---|---\n";
+                foreach (ParameterSyntax p in parameters.Parameters)
                 {
-                    output += "- **" + p.Type.ToString() + " `" + p.Identifier + "`";
+                    output += "" + p.Type.ToFullString() + " **`" + p.Identifier + "`**";
                     //display default value, if it has one
                     if (p.Default != null)
-                        output += " = `" + p.Default.Value + "`**";
-                    else
-                        output += "**";
+                        output += " = `" + p.Default.Value + "`";
 
                     //display comment, if it has one
                     if (paramDict.ContainsKey(p.Identifier.ToString()))
-                        output += ": " + paramDict[p.Identifier.ToString()] + "\n";
+                        output += " | " + paramDict[p.Identifier.ToString()] + "\n";
+                    else
+                        output += "\n";
                 }
             }
             else
@@ -165,6 +201,16 @@ namespace markify
             return document;
         }
 
+        static string ParseCommentTag(XmlDocument document, string tagName)
+        {
+            XmlNodeList tagList = document.GetElementsByTagName(tagName);
+
+            if (tagList.Count > 0)
+                return tagList[0].InnerText;
+            else
+                return "";
+        }
+
         static Dictionary<string, string> ParseParamComments(XmlDocument document)
         {
             Dictionary<string, string> paramDict = new Dictionary<string, string>();
@@ -176,42 +222,6 @@ namespace markify
             }
 
             return paramDict;
-        }
-
-        struct ClassInfo
-        {
-            public string name;
-            public string namespaceName;
-            public string commentXml;
-            public string snippet;
-
-            public ClassInfo(string name, string namespaceName, string commentXml, string snippet)
-            {
-                this.name = name;
-                this.namespaceName = namespaceName;
-                this.commentXml = commentXml;
-                this.snippet = snippet;
-            }            
-        }
-
-        struct MethodInfo
-        {
-            public string name;
-            public string returnType;
-            public ParameterListSyntax parameters;
-            public TypeParameterListSyntax typeParameters;
-            public XmlDocument comment;
-            public string snippet;
-
-            public MethodInfo(string name, string returnType, ParameterListSyntax parameters, TypeParameterListSyntax typeParameters, XmlDocument comment, string snippet)
-            {
-                this.name = name;
-                this.returnType = returnType;
-                this.parameters = parameters;
-                this.typeParameters = typeParameters;
-                this.comment = comment;
-                this.snippet = snippet;
-            }
         }
 
     }
