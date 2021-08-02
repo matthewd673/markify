@@ -51,13 +51,33 @@ namespace markify
 
             //get list of all constructors
             IEnumerable<ConstructorDeclarationSyntax> constructors = syntaxTree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>();
+            if (constructors.Count() > 0)
+                Console.WriteLine("## Constructors");
             foreach (ConstructorDeclarationSyntax c in constructors)
             {
-                //TODO
+                SyntaxTriviaList triviaList = c.GetLeadingTrivia();
+
+                string rawComment = "";
+                foreach (SyntaxTrivia t in triviaList)
+                {
+                    if (t.Kind() != SyntaxKind.SingleLineDocumentationCommentTrivia)
+                        continue;
+                    rawComment += t.ToString();
+                }
+
+                XmlDocument comment = CommentToXml(rawComment);
+                string summary = ParseCommentTag(comment, "summary");
+                Dictionary<string, string> paramDict = ParseParamComments(comment);
+
+                string constructorSnippet = BuildConstructorSnippet(c);
+
+                Console.WriteLine(GenerateMethodMarkdown(c.Identifier.Text, "public", constructorSnippet, summary, "", c.ParameterList, null, paramDict, null));
             }
 
             //get list of all method declarations
             IEnumerable<MethodDeclarationSyntax> methods = syntaxTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>();
+            if (constructors.Count() > 0)
+                Console.WriteLine("## Methods");
             foreach (MethodDeclarationSyntax m in methods)
             {
                 SyntaxTriviaList triviaList = m.GetLeadingTrivia();
@@ -102,7 +122,7 @@ namespace markify
         static string GenerateMethodMarkdown(string name, string returnType, string snippet, string summary, string returns, ParameterListSyntax parameters, TypeParameterListSyntax typeParameters, Dictionary<string, string> paramDict, Dictionary<string, string> typeParamDict)
         {
             //build header and code snippet
-            string output = "## " + returnType + " `" + name + "`\n";
+            string output = "### " + returnType + " `" + name + "`\n";
             output += "```csharp\n" + snippet + "\n```\n\n";
 
             //build summary
@@ -191,6 +211,31 @@ namespace markify
 
             return output.Trim();
         }
+
+        //copied from BuildMethodSnippet
+        static string BuildConstructorSnippet(ConstructorDeclarationSyntax c)
+        {
+            List<SyntaxNode> children = c.ChildNodes().ToList();
+
+            //build output starting with modifiers, then next child nodes until block
+            string output = c.Modifiers.ToString().Trim() + " ";
+            for (int i = 0; i < children.Count; i++)
+            {
+                if (children[i].IsKind(SyntaxKind.Block)) //stop at code block
+                    break;
+
+                if (i == 0) //add identifier when appropriate
+                    output += c.Identifier;
+
+                if (children[i].IsKind(SyntaxKind.ParameterList)) //avoid whitespace before parameter list (cosmetic)
+                    output = output.Trim();
+
+                output += children[i] + " ";
+            }
+
+            return output.Trim();
+        }
+
 
         static XmlDocument CommentToXml(string rawComment)
         {
