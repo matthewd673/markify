@@ -74,10 +74,11 @@ namespace markify
                 string summary = ParseCommentTag(comment, "summary");
                 string returns = ParseCommentTag(comment, "returns");
                 Dictionary<string, string> paramDict = ParseParamComments(comment);
+                Dictionary<string, string> typeParamDict = ParseParamComments(comment, "typeparam");
 
                 string methodSnippet = BuildMethodSnippet(m);
 
-                Console.WriteLine(GenerateMethodMarkdown(m.Identifier.Text, m.ReturnType.ToString(), methodSnippet, summary, returns, m.ParameterList, paramDict));
+                Console.WriteLine(GenerateMethodMarkdown(m.Identifier.Text, m.ReturnType.ToString(), methodSnippet, summary, returns, m.ParameterList, m.TypeParameterList, paramDict, typeParamDict));
             }
 
             return output;
@@ -98,7 +99,7 @@ namespace markify
             return output;
         }
 
-        static string GenerateMethodMarkdown(string name, string returnType, string snippet, string summary, string returns, ParameterListSyntax parameters, Dictionary<string, string> paramDict)
+        static string GenerateMethodMarkdown(string name, string returnType, string snippet, string summary, string returns, ParameterListSyntax parameters, TypeParameterListSyntax typeParameters, Dictionary<string, string> paramDict, Dictionary<string, string> typeParamDict)
         {
             //build header and code snippet
             string output = "## " + returnType + " `" + name + "`\n";
@@ -110,12 +111,26 @@ namespace markify
 
             //build returns info
             if (!returns.Equals(""))
-            {
                 output += "**Returns:** " + returns + "\n\n";
+
+            //build type parameters table
+            if (typeParameters != null && typeParameters.Parameters.Count > 0)
+            {
+                output += "Type Parameter|Description\n---|---\n";
+                foreach (TypeParameterSyntax p in typeParameters.Parameters)
+                {
+                    output += "**`" + p.Identifier + "`**";
+                    //display comment, if it has one
+                    if (typeParamDict.ContainsKey(p.Identifier.ToString()))
+                        output += " | " + typeParamDict[p.Identifier.ToString()] + "\n";
+                    else
+                        output += "\n";
+                }
+                output += "\n";
             }
 
             //build parameters table
-            if (parameters.Parameters.Count > 0)
+            if (parameters != null && parameters.Parameters.Count > 0)
             {
                 output += "Parameter|Description\n---|---\n";
                 foreach (ParameterSyntax p in parameters.Parameters)
@@ -131,10 +146,7 @@ namespace markify
                     else
                         output += "\n";
                 }
-            }
-            else
-            {
-                output += "*(No parameters)*\n";
+                output += "\n";
             }
 
             return output;
@@ -211,10 +223,10 @@ namespace markify
                 return "";
         }
 
-        static Dictionary<string, string> ParseParamComments(XmlDocument document)
+        static Dictionary<string, string> ParseParamComments(XmlDocument document, string tagName = "param")
         {
             Dictionary<string, string> paramDict = new Dictionary<string, string>();
-            foreach (XmlNode node in document.GetElementsByTagName("param"))
+            foreach (XmlNode node in document.GetElementsByTagName(tagName))
             {
                 string paramName = node.Attributes.GetNamedItem("name").Value;
                 string paramComment = node.InnerText;
