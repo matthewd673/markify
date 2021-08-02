@@ -9,7 +9,7 @@ namespace markify
         {
             //temporary
             string fileText = File.ReadAllText(@"C:\Users\Matthew\Source\Repos\IsoEngine\IsoEngine\Animation.cs");
-            string output = Generator.ParseFile(fileText);
+            string output = Parser.ParseFile(fileText);
 
             Console.WriteLine(output);
         }
