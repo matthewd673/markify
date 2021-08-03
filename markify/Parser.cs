@@ -25,6 +25,7 @@ namespace markify
 
             //parse all class declarations
             IEnumerable<ClassDeclarationSyntax> classes = syntaxTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>();
+            int classI = 0;
             foreach (ClassDeclarationSyntax c in classes)
             {
                 //CLASS DECLARATION
@@ -66,6 +67,12 @@ namespace markify
                 //parse all method declarations
                 foreach (MethodDeclarationSyntax m in methods)
                     output += ParseMethodDeclarationSyntax(m);
+
+                //add break, if necessary
+                classI++;
+                if (classI < classes.Count())
+                    output += "---\n\n";
+
             }
 
             return output;
