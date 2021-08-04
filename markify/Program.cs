@@ -18,7 +18,7 @@ namespace markify
 
             string inputDirectory = args[0];
             string outputDirectory = args[1];
-            if (!outputDirectory.EndsWith("\\"))
+            if (!outputDirectory.EndsWith("\\") && !outputDirectory.StartsWith("--"))
                 outputDirectory += "\\";
 
             List<string> inputFiles = new List<string>();
@@ -28,13 +28,14 @@ namespace markify
                 inputFiles = GetAllFilesInDirectory(inputDirectory, "*.cs");
 
             int i = 0;
+            Parser parser = new Parser(new MarkdownGenerator());
             foreach (string filepath in inputFiles)
             {
                 i++;
                 string text = File.ReadAllText(filepath);
-                string output = Parser.ParseFile(text);
+                string output = parser.ParseFile(text);
 
-                if (outputDirectory.Equals("--print\\")) //special flag to print to console
+                if (outputDirectory.Equals("--print")) //special flag to print to console
                 {
                     Console.WriteLine(output);
                     continue;
@@ -48,6 +49,12 @@ namespace markify
             }
         }
 
+        /// <summary>
+        /// Find the filepaths of all files located in the given directory, and any subdirectories.
+        /// </summary>
+        /// <param name="directory">The directory to search in.</param>
+        /// <param name="searchPattern">The search pattern to apply.</param>
+        /// <returns>A list of all filepaths matching the search pattern through all subdirectories.</returns>
         static List<string> GetAllFilesInDirectory(string directory, string searchPattern = "*")
         {
             if (directory.Contains("\\obj\\")) //skip obj directory

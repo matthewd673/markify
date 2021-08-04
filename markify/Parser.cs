@@ -8,12 +8,27 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace markify
 {
-    public static class Parser
+    public class Parser
     {
 
-        public static string ParseFile(string sourceText)
-        {
+        IGenerator generator;
 
+        /// <summary>
+        /// Initialize a new Parser.
+        /// </summary>
+        /// <param name="generator">The generator to use when building the output.</param>
+        public Parser(IGenerator generator)
+        {
+            this.generator = generator;
+        }
+
+        /// <summary>
+        /// Parse a given C# file, and return the full generated output.
+        /// </summary>
+        /// <param name="sourceText">The contents of the C# file to build from.</param>
+        /// <returns>A string representing the full output of the generator.</returns>
+        public string ParseFile(string sourceText)
+        {
             string output = "";
 
             SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(sourceText, CSharpParseOptions.Default.WithDocumentationMode(DocumentationMode.Parse));
@@ -90,7 +105,7 @@ namespace markify
 
         }
 
-        static string ParseClassDeclarationSyntax(ClassDeclarationSyntax c)
+        string ParseClassDeclarationSyntax(ClassDeclarationSyntax c)
         {
             //generate markdown for each class
             SyntaxTriviaList triviaList = c.GetLeadingTrivia();
@@ -108,10 +123,10 @@ namespace markify
 
             string classSnippet = BuildClassSnippet(c);
 
-            return MarkdownGenerator.GenerateClassMarkdown(c.Identifier.Text, classSnippet, summary);
+            return generator.GenerateClassDescription(c.Identifier.Text, classSnippet, summary);
         }
 
-        static string ParseStructDeclarationSyntax(StructDeclarationSyntax s)
+        string ParseStructDeclarationSyntax(StructDeclarationSyntax s)
         {
             SyntaxTriviaList triviaList = s.GetLeadingTrivia();
 
@@ -128,10 +143,10 @@ namespace markify
 
             string structSnippet = BuildStructSnippet(s);
 
-            return MarkdownGenerator.GenerateStructMarkdown(s.Identifier.Text, structSnippet, summary);
+            return generator.GenerateStructDescription(s.Identifier.Text, structSnippet, summary);
         }
 
-        static string ParseConstructorDeclarationSyntax(ConstructorDeclarationSyntax c, bool structConstructor = false)
+        string ParseConstructorDeclarationSyntax(ConstructorDeclarationSyntax c, bool structConstructor = false)
         {
             SyntaxTriviaList triviaList = c.GetLeadingTrivia();
 
@@ -153,10 +168,10 @@ namespace markify
             if (structConstructor)
                 headerLevel = "####";
 
-            return MarkdownGenerator.GenerateMethodMarkdown(c.Identifier.Text, "public", constructorSnippet, summary, "", c.ParameterList, null, paramDict, null, headerLevel);
+            return generator.GenerateMethodDescription(c.Identifier.Text, "public", constructorSnippet, summary, "", c.ParameterList, null, paramDict, null, headerLevel);
         }
 
-        static string ParseMethodDeclarationSyntax(MethodDeclarationSyntax m)
+        string ParseMethodDeclarationSyntax(MethodDeclarationSyntax m)
         {
             SyntaxTriviaList triviaList = m.GetLeadingTrivia();
 
@@ -176,7 +191,7 @@ namespace markify
 
             string methodSnippet = BuildMethodSnippet(m);
 
-            return MarkdownGenerator.GenerateMethodMarkdown(m.Identifier.Text, m.ReturnType.ToString(), methodSnippet, summary, returns, m.ParameterList, m.TypeParameterList, paramDict, typeParamDict);
+            return generator.GenerateMethodDescription(m.Identifier.Text, m.ReturnType.ToString(), methodSnippet, summary, returns, m.ParameterList, m.TypeParameterList, paramDict, typeParamDict);
         }
 
         static string BuildClassSnippet(ClassDeclarationSyntax c)

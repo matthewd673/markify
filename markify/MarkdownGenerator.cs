@@ -5,10 +5,20 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace markify
 {
-    public static class MarkdownGenerator
+    /// <summary>
+    /// A Generator used to build markdown-formatted documentation pages.
+    /// </summary>
+    public class MarkdownGenerator : IGenerator
     {
 
-        public static string GenerateClassMarkdown(string name, string snippet, string summary)
+        /// <summary>
+        /// Generate a class description in markdown.
+        /// </summary>
+        /// <param name="name">The name of the class.</param>
+        /// <param name="snippet">The code snippet representing the class declaration.</param>
+        /// <param name="summary">The summary of the class.</param>
+        /// <returns>A string of markdown.</returns>
+        public string GenerateClassDescription(string name, string snippet, string summary)
         {
             //build header, namespace info, and snippet
             string output = "# class `" + name + "`\n";
@@ -21,7 +31,14 @@ namespace markify
             return output;
         }
 
-        public static string GenerateStructMarkdown(string name, string snippet, string summary)
+        /// <summary>
+        /// Generate a struct description in markdown.
+        /// </summary>
+        /// <param name="name">The name of the struct.</param>
+        /// <param name="snippet">The code snippet representing the struct declaration.</param>
+        /// <param name="summary">The summary of the class.</param>
+        /// <returns>A string of markdown.</returns>
+        public string GenerateStructDescription(string name, string snippet, string summary)
         {
             //build header and snippet
             string output = "### struct `" + name + "`\n";
@@ -34,7 +51,21 @@ namespace markify
             return output;
         }
 
-        public static string GenerateMethodMarkdown(string name, string returnType, string snippet, string summary, string returns, ParameterListSyntax parameters, TypeParameterListSyntax typeParameters, Dictionary<string, string> paramDict, Dictionary<string, string> typeParamDict, string headerLevel = "###")
+        /// <summary>
+        /// Generate a method description in markdown.
+        /// </summary>
+        /// <param name="name">The name of the method</param>
+        /// <param name="returnType">The return type of the method.</param>
+        /// <param name="snippet">The code snippet representing the method declaration.</param>
+        /// <param name="summary">The summary of the method. Can be left blank.</param>
+        /// <param name="returns">The comment describing what the method returns. Can be left blank.</param>
+        /// <param name="parameters">The method's parameters. Can be null.</param>
+        /// <param name="typeParameters">The method's type parameters. Can be null.</param>
+        /// <param name="paramDict">A Dictionary of parameter names (keys) corresponding with comment descriptions (values).</param>
+        /// <param name="typeParamDict">A Dictionary of type parameter names (keys) corresponding with comment descriptions (values).</param>
+        /// <param name="headerLevel">A string representing the header level to use when printing the method.</param>
+        /// <returns>A string of markdown.</returns>
+        public string GenerateMethodDescription(string name, string returnType, string snippet, string summary, string returns, ParameterListSyntax parameters, TypeParameterListSyntax typeParameters, Dictionary<string, string> paramDict, Dictionary<string, string> typeParamDict, string headerLevel = "###")
         {
             //build header and code snippet
             string output = headerLevel + " " + returnType + " `" + name + "`\n";
