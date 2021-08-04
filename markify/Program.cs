@@ -21,7 +21,11 @@ namespace markify
             if (!outputDirectory.EndsWith("\\"))
                 outputDirectory += "\\";
 
-            List<string> inputFiles = GetAllFilesInDirectory(inputDirectory, "*.cs");
+            List<string> inputFiles = new List<string>();
+            if (File.Exists(inputDirectory)) //its not a directory, its a file
+                inputFiles.Add(inputDirectory);
+            else
+                inputFiles = GetAllFilesInDirectory(inputDirectory, "*.cs");
 
             int i = 0;
             foreach (string filepath in inputFiles)
@@ -30,16 +34,18 @@ namespace markify
                 string text = File.ReadAllText(filepath);
                 string output = Parser.ParseFile(text);
 
-                string outputName = filepath.Remove(0, inputDirectory.Length + 1).Replace("\\", ".").Split('.')[0] + ".md"; //a mess
+                if (outputDirectory.Equals("--print\\")) //special flag to print to console
+                {
+                    Console.WriteLine(output);
+                    continue;
+                }
+
+                string outputName = filepath.Remove(0, inputDirectory.Length).Split('.')[0] + ".md"; //a mess
+                outputName = outputName.Replace('\\', '.');
                 File.WriteAllText(outputDirectory + outputName, output);
 
                 Console.WriteLine("Completed {0} ({1}/{2})", outputName, i, inputFiles.Count);
-
             }
-            //string fileText = File.ReadAllText(@"C:\Users\Matthew\Source\Repos\IsoEngine\IsoEngine\Animation.cs");
-            //string output = Parser.ParseFile(fileText);
-
-            //Console.WriteLine(output);
         }
 
         static List<string> GetAllFilesInDirectory(string directory, string searchPattern = "*")

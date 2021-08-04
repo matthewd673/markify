@@ -8,11 +8,10 @@ namespace markify
     public static class MarkdownGenerator
     {
 
-        public static string GenerateClassMarkdown(string name, string namespaceName, string snippet, string summary)
+        public static string GenerateClassMarkdown(string name, string snippet, string summary)
         {
             //build header, namespace info, and snippet
             string output = "# class `" + name + "`\n";
-            output += "Namespace: *" + namespaceName + "*\n\n";
             output += "```csharp\n" + snippet + "\n```\n\n";
 
             //build summary
@@ -71,7 +70,7 @@ namespace markify
                 output += "Parameter|Description\n---|---\n";
                 foreach (ParameterSyntax p in parameters.Parameters)
                 {
-                    output += "" + p.Type.ToFullString() + " **`" + p.Identifier + "`**";
+                    output += "" + p.Type.ToString() + " **`" + p.Identifier + "`**";
                     //display default value, if it has one
                     if (p.Default != null)
                         output += " = `" + p.Default.Value + "`";

@@ -21,7 +21,8 @@ namespace markify
             //get namespace
             IEnumerable<NamespaceDeclarationSyntax> namespaceDecsEnum = syntaxTree.GetRoot().DescendantNodes().OfType<NamespaceDeclarationSyntax>();
             NamespaceDeclarationSyntax namespaceDec = namespaceDecsEnum.First();
-            string namespaceName = namespaceDec.Name.ToString();
+
+            output += "**Namespace:** " + namespaceDec.Name.ToString() + "\n\n";
 
             //parse all class declarations
             IEnumerable<ClassDeclarationSyntax> classes = syntaxTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>();
@@ -29,10 +30,22 @@ namespace markify
             foreach (ClassDeclarationSyntax c in classes)
             {
                 //CLASS DECLARATION
-                output += ParseClassDeclarationSyntax(c, namespaceName);
+                output += ParseClassDeclarationSyntax(c);
+
+                IEnumerable<StructDeclarationSyntax> structs = c.DescendantNodes().OfType<StructDeclarationSyntax>();
+                IEnumerable<ConstructorDeclarationSyntax> constructors = c.DescendantNodes().OfType<ConstructorDeclarationSyntax>();
+                IEnumerable<MethodDeclarationSyntax> methods = c.DescendantNodes().OfType<MethodDeclarationSyntax>();
+
+                //build navigation
+                output += "**Navigate**\n";
+                if (structs.Count() > 0)
+                    output += "- [Structs](#structs)\n";
+                if (constructors.Count() > 0)
+                    output += "- [Constructors](#constructors)\n";
+                if (methods.Count() > 0)
+                    output += "- [Methods](#methods)\n\n";
 
                 //STRUCTS
-                IEnumerable<StructDeclarationSyntax> structs = c.DescendantNodes().OfType<StructDeclarationSyntax>();
                 //add section header
                 if (structs.Count() > 0)
                     output += "## Structs\n";
@@ -47,7 +60,6 @@ namespace markify
                 }
 
                 //CONSTRUCTORS
-                IEnumerable<ConstructorDeclarationSyntax> constructors = c.DescendantNodes().OfType<ConstructorDeclarationSyntax>();
                 //add section header
                 if (constructors.Count() > 0)
                     output += "## Constructors\n";
@@ -60,7 +72,6 @@ namespace markify
                 }
 
                 //METHODS
-                IEnumerable<MethodDeclarationSyntax> methods = c.DescendantNodes().OfType<MethodDeclarationSyntax>();
                 //add section header
                 if (constructors.Count() > 0)
                     output += ("## Methods\n");
@@ -79,7 +90,7 @@ namespace markify
 
         }
 
-        static string ParseClassDeclarationSyntax(ClassDeclarationSyntax c, string namespaceName)
+        static string ParseClassDeclarationSyntax(ClassDeclarationSyntax c)
         {
             //generate markdown for each class
             SyntaxTriviaList triviaList = c.GetLeadingTrivia();
@@ -97,7 +108,7 @@ namespace markify
 
             string classSnippet = BuildClassSnippet(c);
 
-            return MarkdownGenerator.GenerateClassMarkdown(c.Identifier.Text, namespaceName, classSnippet, summary);
+            return MarkdownGenerator.GenerateClassMarkdown(c.Identifier.Text, classSnippet, summary);
         }
 
         static string ParseStructDeclarationSyntax(StructDeclarationSyntax s)
@@ -141,6 +152,7 @@ namespace markify
             string headerLevel = "###";
             if (structConstructor)
                 headerLevel = "####";
+
             return MarkdownGenerator.GenerateMethodMarkdown(c.Identifier.Text, "public", constructorSnippet, summary, "", c.ParameterList, null, paramDict, null, headerLevel);
         }
 
