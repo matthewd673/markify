@@ -101,6 +101,67 @@ namespace markify
 
             }
 
+            //parse all interface declarations
+            IEnumerable<InterfaceDeclarationSyntax> interfaces = syntaxTree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>();
+            int interI = 0;
+            foreach (InterfaceDeclarationSyntax i in interfaces) //copied from previous
+            {
+                //CLASS DECLARATION
+                output += ParseInterfaceDeclarationSyntax(i);
+
+                IEnumerable<StructDeclarationSyntax> structs = i.DescendantNodes().OfType<StructDeclarationSyntax>();
+                IEnumerable<ConstructorDeclarationSyntax> constructors = i.DescendantNodes().OfType<ConstructorDeclarationSyntax>();
+                IEnumerable<MethodDeclarationSyntax> methods = i.DescendantNodes().OfType<MethodDeclarationSyntax>();
+
+                //build navigation
+                output += "**Navigate**\n";
+                if (structs.Count() > 0)
+                    output += "- [Structs](#structs)\n";
+                if (constructors.Count() > 0)
+                    output += "- [Constructors](#constructors)\n";
+                if (methods.Count() > 0)
+                    output += "- [Methods](#methods)\n\n";
+
+                //STRUCTS
+                //add section header
+                if (structs.Count() > 0)
+                    output += "## Structs\n";
+                //parse all structs
+                foreach (StructDeclarationSyntax s in structs)
+                {
+                    output += ParseStructDeclarationSyntax(s);
+
+                    IEnumerable<ConstructorDeclarationSyntax> structConstructors = s.DescendantNodes().OfType<ConstructorDeclarationSyntax>();
+                    foreach (ConstructorDeclarationSyntax con in structConstructors)
+                        output += ParseConstructorDeclarationSyntax(con, structConstructor: true);
+                }
+
+                //CONSTRUCTORS
+                //add section header
+                if (constructors.Count() > 0)
+                    output += "## Constructors\n";
+                //parse all constructors
+                foreach (ConstructorDeclarationSyntax con in constructors)
+                {
+                    if (con.Parent.Kind() == SyntaxKind.StructDeclaration)
+                        continue;
+                    output += ParseConstructorDeclarationSyntax(con);
+                }
+
+                //METHODS
+                //add section header
+                if (methods.Count() > 0)
+                    output += ("## Methods\n");
+                //parse all method declarations
+                foreach (MethodDeclarationSyntax m in methods)
+                    output += ParseMethodDeclarationSyntax(m);
+
+                //add break, if necessary
+                interI++;
+                if (interI < interfaces.Count())
+                    output += "---\n\n";
+            }
+
             return output;
 
         }
@@ -124,6 +185,27 @@ namespace markify
             string classSnippet = BuildClassSnippet(c);
 
             return generator.GenerateClassDescription(c.Identifier.Text, classSnippet, summary);
+        }
+
+        string ParseInterfaceDeclarationSyntax(InterfaceDeclarationSyntax i)
+        {
+            //generate markdown for each interface
+            SyntaxTriviaList triviaList = i.GetLeadingTrivia();
+
+            string rawComment = "";
+            foreach (SyntaxTrivia t in triviaList)
+            {
+                if (t.Kind() != SyntaxKind.SingleLineDocumentationCommentTrivia)
+                    continue;
+                rawComment += t.ToString();
+            }
+
+            XmlDocument comment = CommentToXml(rawComment);
+            string summary = ParseCommentTag(comment, "summary");
+
+            string classSnippet = BuildInterfaceSnippet(i);
+
+            return generator.GenerateClassDescription(i.Identifier.Text, classSnippet, summary);
         }
 
         string ParseStructDeclarationSyntax(StructDeclarationSyntax s)
@@ -201,6 +283,24 @@ namespace markify
             //start with the first token and continue until an open brace is found, marking beginning of block
             //this is implemented very differently from BuildMethodSnippet because ChildNodes() seems to only return the block for a ClassDeclarationSyntax
             SyntaxToken current = c.GetFirstToken();
+            while (true)
+            {
+                if (current.Kind() == SyntaxKind.OpenBraceToken)
+                    break;
+                output += current.ToString() + " ";
+                current = current.GetNextToken();
+            }
+            return output.Trim();
+        }
+
+        //Copied from BuildClassSnippet
+        static string BuildInterfaceSnippet(InterfaceDeclarationSyntax i)
+        {
+            string output = "";
+
+            //start with the first token and continue until an open brace is found, marking beginning of block
+            //this is implemented very differently from BuildMethodSnippet because ChildNodes() seems to only return the block for a ClassDeclarationSyntax
+            SyntaxToken current = i.GetFirstToken();
             while (true)
             {
                 if (current.Kind() == SyntaxKind.OpenBraceToken)

@@ -31,6 +31,19 @@ namespace markify
             return output;
         }
 
+        public string GenerateInterfaceDescription(string name, string snippet, string summary)
+        {
+            //build header, namespace info, and snippet
+            string output = "# interface `" + name + "`\n";
+            output += "```csharp\n" + snippet + "\n```\n\n";
+
+            //build summary
+            if (!summary.Equals(""))
+                output += summary + "\n\n";
+
+            return output;
+        }
+
         /// <summary>
         /// Generate a struct description in markdown.
         /// </summary>
