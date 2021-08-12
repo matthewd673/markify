@@ -88,7 +88,7 @@ namespace markify
 
                 //METHODS
                 //add section header
-                if (constructors.Count() > 0)
+                if (methods.Count() > 0)
                     output += ("## Methods\n");
                 //parse all method declarations
                 foreach (MethodDeclarationSyntax m in methods)
