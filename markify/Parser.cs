@@ -205,7 +205,7 @@ namespace markify
 
             string classSnippet = BuildInterfaceSnippet(i);
 
-            return generator.GenerateClassDescription(i.Identifier.Text, classSnippet, summary);
+            return generator.GenerateInterfaceDescription(i.Identifier.Text, classSnippet, summary);
         }
 
         string ParseStructDeclarationSyntax(StructDeclarationSyntax s)
