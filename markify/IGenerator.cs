@@ -16,5 +16,6 @@ namespace markify
             string summary, string returns, ParameterListSyntax parameters,
             TypeParameterListSyntax typeParameters, Dictionary<string, string> paramDict,
             Dictionary<string, string> typeParamDict, string headerLevel = "###");
+        string GeneratePropertiesDescription(string property, string description);
     }
 }

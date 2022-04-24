@@ -50,19 +50,34 @@ namespace markify
                 IEnumerable<StructDeclarationSyntax> structs = c.DescendantNodes().OfType<StructDeclarationSyntax>();
                 IEnumerable<ConstructorDeclarationSyntax> constructors = c.DescendantNodes().OfType<ConstructorDeclarationSyntax>();
                 IEnumerable<MethodDeclarationSyntax> methods = c.DescendantNodes().OfType<MethodDeclarationSyntax>();
+                IEnumerable<PropertyDeclarationSyntax> properties = c.DescendantNodes().OfType<PropertyDeclarationSyntax>();
 
                 //build navigation
                 output += "**Navigate**\n";
-                if (structs.Count() > 0)
+                if (properties.Any())
+                    output += "- [Properties](#properties)\n";
+                if (structs.Any())
                     output += "- [Structs](#structs)\n";
-                if (constructors.Count() > 0)
+                if (constructors.Any())
                     output += "- [Constructors](#constructors)\n";
-                if (methods.Count() > 0)
+                if (methods.Any())
                     output += "- [Methods](#methods)\n\n";
+
+                //PROPERTIES
+                //add section header
+                if (properties.Any())
+                {
+                    output += "## Properties\n";
+                    output += "|Property|Description|\n|---|---|\n";
+                }
+                foreach (PropertyDeclarationSyntax p in properties)
+                {
+                    output += ParsePropertiesDeclarationSyntax(p);
+                }
 
                 //STRUCTS
                 //add section header
-                if (structs.Count() > 0)
+                if (structs.Any())
                     output += "## Structs\n";
                 //parse all structs
                 foreach (StructDeclarationSyntax s in structs)
@@ -76,7 +91,7 @@ namespace markify
 
                 //CONSTRUCTORS
                 //add section header
-                if (constructors.Count() > 0)
+                if (constructors.Any())
                     output += "## Constructors\n";
                 //parse all constructors
                 foreach (ConstructorDeclarationSyntax con in constructors)
@@ -88,11 +103,13 @@ namespace markify
 
                 //METHODS
                 //add section header
-                if (methods.Count() > 0)
+                if (methods.Any())
                     output += ("## Methods\n");
                 //parse all method declarations
                 foreach (MethodDeclarationSyntax m in methods)
+                {
                     output += ParseMethodDeclarationSyntax(m);
+                }
 
                 //add break, if necessary
                 classI++;
@@ -115,16 +132,16 @@ namespace markify
 
                 //build navigation
                 output += "**Navigate**\n";
-                if (structs.Count() > 0)
+                if (structs.Any())
                     output += "- [Structs](#structs)\n";
-                if (constructors.Count() > 0)
+                if (constructors.Any())
                     output += "- [Constructors](#constructors)\n";
-                if (methods.Count() > 0)
+                if (methods.Any())
                     output += "- [Methods](#methods)\n\n";
 
                 //STRUCTS
                 //add section header
-                if (structs.Count() > 0)
+                if (structs.Any())
                     output += "## Structs\n";
                 //parse all structs
                 foreach (StructDeclarationSyntax s in structs)
@@ -138,7 +155,7 @@ namespace markify
 
                 //CONSTRUCTORS
                 //add section header
-                if (constructors.Count() > 0)
+                if (constructors.Any())
                     output += "## Constructors\n";
                 //parse all constructors
                 foreach (ConstructorDeclarationSyntax con in constructors)
@@ -150,7 +167,7 @@ namespace markify
 
                 //METHODS
                 //add section header
-                if (methods.Count() > 0)
+                if (methods.Any())
                     output += ("## Methods\n");
                 //parse all method declarations
                 foreach (MethodDeclarationSyntax m in methods)
@@ -166,10 +183,9 @@ namespace markify
 
         }
 
-        string ParseClassDeclarationSyntax(ClassDeclarationSyntax c)
+        static string ParseLeadingSummaryComment(CSharpSyntaxNode node)
         {
-            //generate markdown for each class
-            SyntaxTriviaList triviaList = c.GetLeadingTrivia();
+            SyntaxTriviaList triviaList = node.GetLeadingTrivia();
 
             string rawComment = "";
             foreach (SyntaxTrivia t in triviaList)
@@ -182,6 +198,31 @@ namespace markify
             XmlDocument comment = CommentToXml(rawComment);
             string summary = ParseCommentTag(comment, "summary");
 
+            return summary;
+        }
+
+        string ParsePropertiesDeclarationSyntax(PropertyDeclarationSyntax p)
+        {
+            //string summary = ParseLeadingSummaryComment(p);
+
+            string summary = "";
+            foreach (SyntaxTrivia t in p.GetLeadingTrivia())
+            {
+                if (t.Kind() != (SyntaxKind.SingleLineCommentTrivia))
+                    continue;
+                string description = t.ToString();
+                if (description.StartsWith("//"))
+                    description = description.Remove(0, 2);
+                summary += description.Trim();
+            }
+
+            return generator.GeneratePropertiesDescription(p.Identifier.Text, summary);
+        }
+
+        string ParseClassDeclarationSyntax(ClassDeclarationSyntax c)
+        {
+            //generate markdown for each class
+            string summary = ParseLeadingSummaryComment(c);
             string classSnippet = BuildClassSnippet(c);
 
             return generator.GenerateClassDescription(c.Identifier.Text, classSnippet, summary);
@@ -190,19 +231,7 @@ namespace markify
         string ParseInterfaceDeclarationSyntax(InterfaceDeclarationSyntax i)
         {
             //generate markdown for each interface
-            SyntaxTriviaList triviaList = i.GetLeadingTrivia();
-
-            string rawComment = "";
-            foreach (SyntaxTrivia t in triviaList)
-            {
-                if (t.Kind() != SyntaxKind.SingleLineDocumentationCommentTrivia)
-                    continue;
-                rawComment += t.ToString();
-            }
-
-            XmlDocument comment = CommentToXml(rawComment);
-            string summary = ParseCommentTag(comment, "summary");
-
+            string summary = ParseLeadingSummaryComment(i);
             string classSnippet = BuildInterfaceSnippet(i);
 
             return generator.GenerateInterfaceDescription(i.Identifier.Text, classSnippet, summary);
@@ -210,19 +239,7 @@ namespace markify
 
         string ParseStructDeclarationSyntax(StructDeclarationSyntax s)
         {
-            SyntaxTriviaList triviaList = s.GetLeadingTrivia();
-
-            string rawComment = "";
-            foreach (SyntaxTrivia t in triviaList)
-            {
-                if (t.Kind() != SyntaxKind.SingleLineDocumentationCommentTrivia)
-                    continue;
-                rawComment += t.ToString();
-            }
-
-            XmlDocument comment = CommentToXml(rawComment);
-            string summary = ParseCommentTag(comment, "summary");
-
+            string summary = ParseLeadingSummaryComment(s);
             string structSnippet = BuildStructSnippet(s);
 
             return generator.GenerateStructDescription(s.Identifier.Text, structSnippet, summary);
@@ -418,6 +435,8 @@ namespace markify
 
             return paramDict;
         }
+
+
 
     }
 }

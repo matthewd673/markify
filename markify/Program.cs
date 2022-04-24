@@ -21,11 +21,17 @@ namespace markify
             if (!outputDirectory.EndsWith("\\") && !outputDirectory.StartsWith("--"))
                 outputDirectory += "\\";
 
+            string[] inputDirectorySplit = inputDirectory.Split('\\');
+            string projectName = inputDirectorySplit[inputDirectorySplit.Length - 1];
+
             List<string> inputFiles = new List<string>();
             if (File.Exists(inputDirectory)) //its not a directory, its a file
                 inputFiles.Add(inputDirectory);
             else
                 inputFiles = GetAllFilesInDirectory(inputDirectory, "*.cs");
+
+            string sidebarContent = "";
+            List<string> seenNamespaces = new();
 
             int i = 0;
             Parser parser = new Parser(new MarkdownGenerator());
@@ -41,12 +47,34 @@ namespace markify
                     continue;
                 }
 
-                string outputName = filepath.Remove(0, inputDirectory.Length).Split('.')[0] + ".md"; //a mess
+                string outputName = filepath.Remove(0, inputDirectory.Length).Split('.')[0]; //a mess
                 outputName = outputName.Replace('\\', '.');
-                File.WriteAllText(outputDirectory + outputName, output);
+                if (outputName.StartsWith("."))
+                    outputName = outputName.Remove(0, 1);
+                File.WriteAllText(outputDirectory + outputName + ".md", output);
 
-                Console.WriteLine("Completed {0} ({1}/{2})", outputName, i, inputFiles.Count);
+                string[] filenameSplit = outputName.Split(".");
+                string fileNamespace = "";
+                foreach (string part in filenameSplit[..(filenameSplit.Length-1)])
+                    fileNamespace += "." + part;
+
+                fileNamespace = projectName + fileNamespace;
+                Console.WriteLine(fileNamespace);
+
+                if (!seenNamespaces.Contains(fileNamespace))
+                {
+                    sidebarContent += "## " + fileNamespace + "\n";
+                    seenNamespaces.Add(fileNamespace);
+                }
+
+                sidebarContent += "[" + outputName + "](" + outputName + ")\n\n";
+
+                Console.WriteLine("Completed {0} ({1}/{2})", outputName + ".md", i, inputFiles.Count);
             }
+
+            File.WriteAllText(outputDirectory + "_Sidebar.md", sidebarContent);
+
+            Console.WriteLine("Completed sidebar content (_Sidebar.md)");
         }
 
         /// <summary>
